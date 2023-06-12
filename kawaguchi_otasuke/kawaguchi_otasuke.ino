@@ -10,6 +10,7 @@
 #define landing_threshold 9.0
 #define heght_threshold   2000
 
+// コメントアウト
 
 /*
  * BMXのサンプルコードが乗ってますので，配線と一緒に確認してください．
