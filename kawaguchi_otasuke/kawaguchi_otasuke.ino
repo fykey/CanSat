@@ -6,6 +6,8 @@
 #include <SD.h>
 #include <String.h>
 
+#include "BMX_READ.h"
+
 
 #define landing_threshold 9.0
 #define heght_threshold   2000
@@ -53,7 +55,7 @@ SoftwareSerial GPSSerial(2,3);
 File file;
 
 float ReadAccelABS();
-float ReadMagnet(float& mx, float& my, float& mz);
+void ReadMagnet(float& mx, float& my, float& mz);
 void ReadGPS(float& pos_x, float& pos_y, float& pos_z);
 /*
  * 参照渡しを使って値を渡す．知らない人はこれを見てください
@@ -84,10 +86,12 @@ int calib_dir[3];
 int calib_deg;
 int cal_x, cal_y, cal_z;
 
+
+BMX_Read BMX();
  
 void setup() {
   // put your setup code here, to run once:
-  Wire.begin();
+  
   Serial.begin(115200);//シリアル速度は状況に応じて変えてください
   GPSSerial.begin(115200);//シリアル速度は状況に応じて変えてください
   
@@ -95,7 +99,7 @@ void setup() {
     Serial.println("Card Mount Failed");
     return;
   }
-
+  
   
   
   /*
@@ -134,7 +138,7 @@ void setup() {
    calib_dir[1] = my- cal_y;
    calib_dir[2] = mz- cal_z;
 
-   calib_deg = atan2(my/mx); // 現在姿勢に対する，基準方向
+   calib_deg = atan2(calib_dir[1]/calib_dir[0]); // 現在姿勢に対する，基準方向
    
 
 }
@@ -148,8 +152,15 @@ void loop() {
    */
    
    ReadMagnet(float mx, float my, float mz);
-   float direc_now = atan2(my/mx);
+   float direc_now = atan2((my - cal_y)/(mx - cal_x));
    float correc_angle = calib_deg - direc_now;
+
+   ReadGPS(float pos_x, float pos_y, float pos_z);
+   float dir_x = TARGET_LATITUDE - pos_x;
+   float dir_y = TARGET_LONGITUDE - pos_y;
+   float dir_angle = atan2(dir_y / dir_x);
+
+   float rotate_angle = correc_angle - (90 - dir_angle)// dir_angle, correc_angleを使って，回転角度を特定する
 
    bool correc_flag = (abs(correc_angle>= 10)? true : false);     
    //誤差が前後10度以内なら，補正しない
@@ -161,9 +172,9 @@ void loop() {
    
     if (correc_flag){
      if(correction_angle >= 0){
-      DC_Left(int(correc_angle));
+      DC_Left(int(rotate_angle));
      }else{
-      DC_Right(int(-correc_angle));
+      DC_Right(int(-rotate_angle));
      }
     }
 
@@ -173,22 +184,89 @@ void loop() {
     * GPSの読み取り．SDにも格納する
     */
     
-    ReadGPS(float pos_x, float pos_y, float pos_z);
+    
     String data = String(pos_x) + "," + String(pos_y) + "," + String(pos_z) + "\n";
     file = SD.open("GPS.csv", FILE_WRITE);
     if(file){
       file.write(data)
     }
     file.close();
+
+
+    /*
+     *終了処理は後で書いてください
+     *
+     */
+
+
 }
 
 
 
 
-float readAccelABS(){
-   float ax = digitalRead(ax_pin);
-   float ay = digitalRead(ay_pin);
-   float az = digitalRead(ay_pin);
-   float A = sqrt(ax * ax + ay * ay + az * az);
-   return A
+float ReadAccelABS(){
+  BMX.BMX055_Accl();
+  return sqrt(BMX.xAccl * BMX.xAccl + BMX.yAccl * BMX.yAccl + BMX.zAccl * BMX.zAccl);
+}
+
+
+void ReadMagnet(float& mx, float& my, float& mz){
+  BMX.BMX055_Mag();
+  mx = BMX.xMag;
+  my = BMX.yMag;
+  mz = BMX.zMag;
+
+}
+void ReadGPS(float& pos_x, float& pos_y, float& pos_z){
+  String line = mySerial.readStringUntil('\n');
+  //下の関数を使って，位置と海抜読み込んでください
+  pos_x = //緯度;
+  pos_y = //経度;
+  pos_z = //海抜;
+  
+
+}
+
+// NMEAの緯度経度を「度分秒」(DMS)の文字列に変換する
+String _NMEA2DMS(float val) {
+  int d = val / 100;
+  int m = ((val / 100.0) - d) * 100.0;
+  float s = ((((val / 100.0) - d) * 100.0) - m) * 60;
+  return String(d) + "度" + String(m) + "分" + String(s, 1) + "秒";
+}
+ 
+// (未使用)NMEAの緯度経度を「度分」(DM)の文字列に変換する
+String _NMEA2DM(float val) {
+  int d = val / 100;
+  float m = ((val / 100.0) - d) * 100.0;
+  return String(d) + "度" + String(m, 4) + "分";
+}
+ 
+// NMEAの緯度経度を「度」(DD)の文字列に変換する
+String _NMEA2DD(float val) {
+  int d = val / 100;
+  int m = (((val / 100.0) - d) * 100.0) / 60;
+  float s = (((((val / 100.0) - d) * 100.0) - m) * 60) / (60 * 60);
+  return String(d + m + s, 6);
+}
+
+
+void DC_Flont(int millimeters){
+
+}
+void DC_Richt(int degree){
+
+}
+void DC_Left(int degree){
+
+}
+void DC_Back(int millimeters){
+
+}
+
+void SD_Write(float gps_ata){
+
+}
+void CompassCalibration(float &cal_x, float &cal_y, float &cal_z){
+
 }
