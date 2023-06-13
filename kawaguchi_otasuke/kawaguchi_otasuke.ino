@@ -1,7 +1,6 @@
 #include <Wire.h>
 #include <SoftwareSerial.h>
 #include <SPI.h>
-#include <Serial.h>
 #include <Servo.h>
 #include <SD.h>
 #include <String.h>
@@ -40,12 +39,12 @@
 #define SCK     13
 
 //I2C for DC
-#define EN_1    5
-#define EN_2    6
-#define PH_1    7
-#define PH_2    8
+#define LEFT_EN    5
+#define RIGHT_EN   6
+#define RIGHT_PH   7
+#define LEFT_PH    8   
 
-#define SRV_PIN 9
+#define SRV_PIN    9
 
 // 目標位置　適宜変更すること
 #define TARGET_LATITUDE     100
@@ -63,10 +62,8 @@ void ReadGPS(float& pos_x, float& pos_y, float& pos_z);
  */
 
 
-void DC_Flont(int millimeters);
-void DC_Richt(int degree);
-void DC_Left(int degree);
-void DC_Back(int millimeters);
+void DC_Manipulator(String move, int millimeter, int degree, int speed);
+// move　には，"FLONT", "BACK", "RIGHT", "LEFT"のどれかを入れる
 
 void SD_Write(float gps_ata);
 void CompassCalibration(float &cal_x, float &cal_y, float &cal_z);
@@ -122,10 +119,15 @@ void setup() {
    /*
     * ちゃくりくはんていおわり　
     */
+  //DC Motorのピン設定
+  pinMode(RIGHT_EN, OUTPUT);
+  pinMode(RIGHT_PH, OUTPUT);
+
+  pinMode(LEFT_EN, OUTPUT);
+  pinMode(LEFT_PH, OUTPUT);
 
    Servo.write(180);
-   DC_flont(5000);
-
+   DC_Manipulator("FLONT", 5000, -1, 150);
    delay(1000);
    
    /*
@@ -178,7 +180,7 @@ void loop() {
      }
     }
 
-   DC_Flont(10000); // 10 m　走る
+   DC_Manipulator("FLONT", 10000, -1, 150); // 10 m　走る
 
    /*
     * GPSの読み取り．SDにも格納する
@@ -251,22 +253,47 @@ String _NMEA2DD(float val) {
 }
 
 
-void DC_Flont(int millimeters){
+void DC_Manipulator(String move, long millimeter, int degree,  int speed){
+  float coeff_m = 10;// 指定距離を進むための係数．実験的に決めること
+  float coeff_d = 10;// 指定角度を進むための係数．実験的に決めること
+  int time = 0;
 
-}
-void DC_Richt(int degree){
+  switch (move){
+    case "FLONT":
+      digitalWrite(RIGHT_PH,HIGH);        
+      digitalWrite(LEFT_PH, HIGH);
+      time = int(millimeters / speed * coeff_m);
+      break;
+    
+    case "BACK":
+      digitalWrite(RIGHT_PH,LOW);        
+      digitalWrite(LEFT_PH, LOW);
+      time = int(millimeters / speed * coeff_m);
+      break;
+    
+    case "RIGHT":
+      digitalWrite(RIGHT_PH,LOW);        
+      digitalWrite(LEFT_PH, HIGH);
+      time = int(degree / speed * coeff_d); 
+      break;
 
-}
-void DC_Left(int degree){
+    case "LEFT":
+      digitalWrite(RIGHT_PH,HIGH);        
+      digitalWrite(LEFT_PH, LOW);
+      time = int(degree / speed * coeff_d);   
+      break;      
 
-}
-void DC_Back(int millimeters){
+    default:
+      Serial.println("COMMAND NOT FOUND");    
+      break;
+  }
+  analogWrite(RIGHT_EN, speed);   //PWM Speed Control
+  analogWrite(LEFT_EN, speed);   //PWM Speed Control
+  delay(time);
 
-}
-
-void SD_Write(float gps_ata){
-
-}
-void CompassCalibration(float &cal_x, float &cal_y, float &cal_z){
-
+  analogWrite(RIGHT_EN,0);   //PWM Speed Control
+  analogWrite(LEFT_EN,0);   //PWM Speed Control
+  digitalWrite(RIGHT_PH,LOW);   
+  digitalWrite(LEFT_PH,LOW);        
+  
 }
