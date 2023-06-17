@@ -25,6 +25,11 @@ const int SV_PIN = 9;   // サーボモーターをデジタルピン9に
 #define LANDING_THRESHOLD 1000
 #define MAX_STRING_SIZE  256
 
+
+#define X 100          // goal position 変えてください
+#define Y 200
+float calib_x, calib_y, calib_deg;
+
 int add_now = 0;
 
 
@@ -56,17 +61,37 @@ void setup() {
   // put your setup code here, to run once:
   //  motor_setup()；
   //  DC_Manipulator("LEFT", 1000, 45, 150);//
-  float calib_x;
-  float calib_y;
-  float calib_deg;
+  
   add_now = save_EEPROM(String("回れ川口\n"));
   calibration(calib_x, calib_y, calib_deg);  //値渡し実装必要
   add_now = save_EEPROM(String("位置決まったンゴ\n"));
   add_now = save_EEPROM(String("進め川口\n"));
   DC_Manipulator("FLONT", 5000, -1, 150);
 }
+int loop_count = 0;
 
 void loop() {  //キャリブ、走行決定、走行をここに入れるべきか　終了判定も忘れずに(距離が1 m以内とか)
+  loop_count ++;
+  float x=get_long();
+  float y=get_lati();
+  
+  float angle_goal = float(int(360 + atan2(Y-y, X-x)) % 360);
+  float angle_north = float(int(360.0 + atan2(get_magy() - calib_y, get_magx()- calib_x)) % 360);
+
+  float rotate_angle = 90 - angle_goal + angle_north;
+
+DC_Manipulator("LEFT", -1, rotate_angle, 150);
+delay(100);
+DC_Manipulator("FLONT",  1000, -1, 150);
+delay(1000);
+if((sqrt((X-x) * (X-x) + (Y-y) + (Y - y)) < 100)){
+  add_now = save_EEPROM(String("ここまでいけたのは僕のおかげですby大野\n"));
+  return 0;
+}  
+
+if(loop_count % 100 == 0){
+tyakuriku_GPS(HEIGHT_THRESHOLD, LANDING_THRESHOLD);
+}
   
   
 }
